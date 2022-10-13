@@ -32,7 +32,7 @@ content:
 
 ```
 https://github.com/Scalingo/apt-buildpack.git
-https://github.com/Scalingo/clamav-buildpack.git#
+https://github.com/Scalingo/clamav-buildpack.git
 # Probably more buildpacks here. Otherwise your ClamAV won't start!
 ```
 
