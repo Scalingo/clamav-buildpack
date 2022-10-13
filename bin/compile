@@ -1,0 +1,82 @@
+#!/usr/bin/env bash
+
+set -e
+
+if [ -n "${BUILDPACK_DEBUG}" ]
+then
+    set -x
+fi
+
+build_dir="${1}"
+cache_dir="${2}"
+env_dir="${3}"
+
+base_dir="$( cd -P "$( dirname "$0" )" && pwd )"
+buildpack_dir="$( readlink -f "${base_dir}/.." )"
+
+
+# Build some variables, make sure we have nice default values.
+#
+# We also pass variables to the template. For these, the path to the files
+# might change a bit (i.e. $build_dir --> /app).
+# Also, we use environment vars to pass variables to the templates.
+
+# Where freshclam's configuration file is when running:
+prod_freshclam_config_file="/app/clamav/freshclam.conf"
+export FRESHCLAM_CONFIG_FILE="${prod_freshclam_config_file}"
+
+# Where freshclam's configuration file is when building:
+freshclam_config_file="${prod_freshclam_config_file//\/app/${build_dir}}"
+
+mkdir -p "$( dirname "${freshclam_config_file}" )"
+
+
+# Where clamd's configuration file is when running:
+prod_clamd_config_file="/app/clamav/clamd.conf"
+export CLAMD_CONFIG_FILE="${prod_clamd_config_file}"
+
+# Where clamd's configuration file is when building:
+clamd_config_file="${prod_clamd_config_file//\/app/${build_dir}}"
+mkdir -p "$( dirname "${clamd_config_file}" )"
+
+
+# Where clamd's database is when running:
+prod_clamd_db_dir="/app/clamav/data"
+export CLAMD_DATABASE_DIR="${prod_clamd_db_dir}"
+
+# Where clamd's database is when building:
+clamd_db_dir="${prod_clamd_db_dir//\/app/${build_dir}}"
+
+
+clamd_db_mirror="${CLAMD_DATABASE_MIRROR:-database.clamav.net}"
+export CLAMD_DATABASE_MIRROR="${clamd_db_mirror}"
+
+sock="/app/run/clamd.sock"
+export CLAMD_LOCAL_SOCKET="${sock}"
+mkdir -p "$( dirname "${sock}" )"
+
+
+# Build clamd configuration file:
+erb "${buildpack_dir}/config/freshclam.conf.erb" > "${freshclam_config_file}"
+
+# Build freshclam configuration file:
+erb "${buildpack_dir}/config/clamd.conf.erb" > "${clamd_config_file}"
+
+
+# Refresh the virus database
+# Put it in cache for future deployments
+# The source is specified in the conf file
+freshclam \
+    --config-file="${freshclam_config_file}" \
+    --datadir="${cache_dir}/clamav-data/"
+
+# Replace the old virus database:
+rm -rf "${clamd_db_dir}"
+cp -rp "${cache_dir}/clamav-data" "${clamd_db_dir}"
+
+
+# Pass environment to the next buildpack(s):
+#export \
+#    | grep -E -e '(PATH|LD_LIBRARY_PATH|LIBRARY_PATH|INCLUDE_PATH|CPATH|CPPPATH|PKG_CONFIG_PATH|CLAMD_.*|FRESHCLAM_.*)=' \
+#    > "${buildpack_dir}/export"
+
