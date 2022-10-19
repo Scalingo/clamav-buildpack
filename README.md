@@ -59,12 +59,12 @@ configuration, ready to be packaged into a container.
 
 The configuration deployed will ensure that:
 
-- `clamd` will run in background
-- `clamd` will listen on a local unix socket (`/app/run/clamd.sock`)
-- `freshclam` will check for updates 12 times per day
+- `clamd` will run in background.
+- `clamd` will listen on a local unix socket (`/app/run/clamd.sock`).
+- `freshclam` will check for updates 12 times per day, unless specified
+  otherwise (see [Environment](#environment) below).
 - `freshclam` will use the default `database.clamav.net` mirror, unless
-  specified otherwise (see [Environment](#environment)
-  below).
+  specified otherwise (see [Environment](#environment) below).
 
 ### Environment
 
@@ -75,3 +75,17 @@ deployment:
 
 ClamAV database mirror to use.\
 Defaults to `database.clamav.net`
+
+#### FRESHCLAM_DISABLE_DAEMON
+
+When set, this environment variable instructs the image to **NOT** start the
+`freshclam` daemon.
+
+:warning: This is a security risk! Running with an outdated virus database is
+pretty useless. You probably don't want to set this, unless you really know
+what you do.
+
+The virus database is downloaded during the build phase, even when this
+environment variable is set.
+
+Defaults to being unset.
