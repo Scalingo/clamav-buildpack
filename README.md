@@ -48,8 +48,8 @@ The default configuration ensures that:
 
 - `clamd` will run in background.
 - `clamd` will listen on a local unix socket (`/app/run/clamd.sock`).
-- `freshclam` will check for updates 12 times per day, unless specified
-  otherwise (see [Environment](#environment) below).
+- `freshclam` will run in background, checking for updates 12 times a day,
+  unless specified otherwise (see [Environment](#environment) below).
 - `freshclam` will use the default `database.clamav.net` mirror, unless
   specified otherwise (see [Environment](#environment) below).
 
