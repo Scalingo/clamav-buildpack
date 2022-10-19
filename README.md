@@ -1,11 +1,10 @@
 # buildpack: ClamAV
 
-This buildpack installs ClamAV (`clamd` and `freshclam`) into a Scalingo app 
-image.
+This buildpack installs ClamAV into a Scalingo app image.
 
 > :warning: **This buildpack is not meant to be use as a standalone but rather in a
-multi-buildpack deployment scenario, along with other softwares such as nginx
-(as front) and clammit (as link between nginx and ClamAV).**
+multi-buildpack deployment scenario, along with other softwares** such as nginx
+(as front) and clammit (as link between nginx and ClamAV).
 
 ## Usage
 
@@ -16,29 +15,17 @@ content:
 
 ```
 https://github.com/Scalingo/clamav-buildpack.git
-# Probably more buildpacks here. Otherwise your ClamAV won't start!
+# Probably more buildpacks here. Otherwise your container won't boot!
 ```
 
 2. Setup your other buildpacks. Make sure the software(s) interacting with
 ClamAV do it through the local unix socket on which clamd is listening
 (`/app/run/clamd.sock`).
 
-3. Add a `start.sh` (for example) script to your project. It should contain
-instructions to:
+3. Make sure your start the other processes that will communicate with ClamAV.
+   You might need a `Procfile` to do this.
 
-  - Start `clamd`. Something like `clamd --config-file="${HOME}/clamav/clamd.conf"`
-    should do the job.
-  - Start `freshclam`. Something like `freshclam --daemon --config-file="${HOME}/clamav/freshclam.conf"`
-    should be enough.
-  - Start the other processes that will communicate with ClamAV.
-
-4. Add a `Procfile` to your project and ask it to use the `start.sh` script:
-
-```
-web: bash start.sh
-```
-
-5. Trigger a deployment.
+4. Trigger your deployment.
 
 ### Deployment workflow
 
@@ -57,7 +44,7 @@ configuration, ready to be packaged into a container.
 
 ### Behaviour
 
-The configuration deployed will ensure that:
+The default configuration ensures that:
 
 - `clamd` will run in background.
 - `clamd` will listen on a local unix socket (`/app/run/clamd.sock`).
@@ -71,21 +58,26 @@ The configuration deployed will ensure that:
 The following environment variables are available for you to tweak your
 deployment:
 
-#### CLAMD_DATABASE_MIRROR
+#### `CLAMD_DATABASE_MIRROR`
 
 ClamAV database mirror to use.\
 Defaults to `database.clamav.net`
 
-#### FRESHCLAM_DISABLE_DAEMON
+#### `CLAMD_DISABLE_DAEMON`
 
 When set, this environment variable instructs the image to **NOT** start the
-`freshclam` daemon.
+`clamd` daemon.\
+Default to being unset
+
+#### `FRESHCLAM_DISABLE_DAEMON`
+
+When set, this environment variable instructs the image to **NOT** start the
+`freshclam` daemon.\
+Default to being unset
 
 :warning: This is a security risk! Running with an outdated virus database is
 pretty useless. You probably don't want to set this, unless you really know
 what you do.
 
-The virus database is downloaded during the build phase, even when this
-environment variable is set.
-
-Defaults to being unset.
+:point_right: The virus database is downloaded during the build phase, even
+when this environment variable is set.
