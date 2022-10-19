@@ -94,7 +94,8 @@ freshclam \
 rm -rf "${clamd_db_dir}"
 cp -rp "${cache_dir}/clamav-data" "${clamd_db_dir}"
 
-# Copy profile.d script:
+# Copy profile.d scripts:
 mkdir -p "${build_dir}/.profile.d"
-cp "${buildpack_dir}/profile.d/freshclam.sh" \
-    "${build_dir}/.profile.d/freshclam.sh"
+
+find "${buildpack_dir}/profile.d" -type f -name "*.sh" \
+    -exec cp --target-directory="${build_dir}/.profile.d/" +
