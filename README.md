@@ -1,4 +1,6 @@
-# buildpack: ClamAV
+![ClamAV buildpack](scalingo_clamav.svg)
+
+# ClamAV buildpack
 
 ## Usage
 
