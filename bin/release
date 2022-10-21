@@ -1,7 +1,5 @@
 #!/usr/bin/env bash
 # bin/release <build-dir>
 
-build_dir="${1}"
-
 echo "--- {}"
 exit 0
