@@ -98,4 +98,4 @@ cp -rp "${cache_dir}/clamav-data" "${clamd_db_dir}"
 mkdir -p "${build_dir}/.profile.d"
 
 find "${buildpack_dir}/profile.d" -type f -name "*.sh" \
-    -exec cp --target-directory="${build_dir}/.profile.d/" +
+    -exec cp --target-directory="${build_dir}/.profile.d/" {} +
