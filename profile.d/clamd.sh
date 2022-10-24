@@ -6,19 +6,21 @@ start_clamd() {
     clamd --config-file="${HOME}/clamav/clamd.conf"
 }
 
-if [ -z "${CLAMD_DISABLE_DAEMON}" ]
-then
+ensure_clamd() {
     start_clamd
 
     while true
     do
-        pidof "clamd" >/dev/null \
-            && sleep 15 \
+        sleep 15
+        pidof "clamd" > /dev/null \
             || {
                 echo "ClamAV daemon does not seem to be running. Respawning." >&2
                 start_clamd
             }
     done &
-fi
+}
 
-exit 0
+if [ -z "${CLAMD_DISABLE_DAEMON}" ]
+then
+    ensure_clamd
+fi
