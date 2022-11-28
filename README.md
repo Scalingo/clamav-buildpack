@@ -25,7 +25,7 @@ ClamAV do it through the local unix socket on which clamd is listening
 (`/app/run/clamd.sock`).
 
 3. Make sure your start the other processes that will communicate with ClamAV.
-   You might need a `Procfile` to do this.
+   You may need a `Procfile` to do this.
 
 4. Trigger your deployment.
 
@@ -55,6 +55,25 @@ The default configuration ensures that:
 - `freshclam` will use the default `database.clamav.net` mirror, unless
   specified otherwise (see [Environment](#environment) below).
 
+#### Memory consumption
+
+`clamd` requires quite a lot of RAM because it loads the complete virus
+definition database into memory. This allows it to be fast.
+
+During a database reload, `clamd`'s default behavior is to temporarily start a
+second scanning engine while scanning continues using the first engine. The old
+engine is removed as soon as all scans using the old engine have completed.
+
+Consequently, when a database reload occurs, `clamd` uses roughly twice as much
+memory as during nominal operations because 2 databases are loaded at the same
+time. That's why we recommend to use a 2XL container for your application.
+
+You can however disable this behavior by setting the
+`CLAMD_DISABLE_CONCURRENT_RELOAD` environment variable
+[see below](#CLAMD_DISABLE_CONCURRENT_RELOAD). This should allow you to go with
+an XL container. The counterpart is that **scans will be blocked during each
+database reload.**
+
 ### Environment
 
 The following environment variables are available for you to tweak your
@@ -69,13 +88,21 @@ Defaults to `database.clamav.net`
 
 When set, this environment variable instructs the image to **NOT** start the
 `clamd` daemon.\
-Default to being unset
+Defaults to being unset
+
+#### `CLAMD_DISABLE_CONCURRENT_RELOAD`
+
+When set, this environment variable instructs `clamd` to disable its
+`ConcurrentDatabaseReload` feature. This allows for lower RAM requirements, at
+the expense of blocking scans during database reloads (see
+[Memory Consumption](#memory-consumption) for further details).\
+Defaults to being unset
 
 #### `FRESHCLAM_DISABLE_DAEMON`
 
 When set, this environment variable instructs the image to **NOT** start the
 `freshclam` daemon.\
-Default to being unset
+Defaults to being unset
 
 :warning: This is a security risk! Running with an outdated virus database is
 pretty useless. You probably don't want to set this, unless you really know
