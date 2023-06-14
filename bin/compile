@@ -21,9 +21,10 @@ buildpack_dir="$( readlink -f "${base_dir}/.." )"
 orig_aptfile="${APT_FILE_MANIFEST:-Aptfile}"
 
 # Set it to a random value for our needs:
-export APT_FILE_MANIFEST="$( mktemp clamav_buildpack_XXXX )"
+APT_FILE_MANIFEST="$( mktemp clamav_buildpack_XXXX )"
+export APT_FILE_MANIFEST
 
-cat <<EOF >"${APT_FILE_MANIFEST}"
+cat <<EOF >"${build_dir}/${APT_FILE_MANIFEST}"
 clamav
 clamav-daemon
 clamav-freshclam
@@ -45,8 +46,9 @@ rm -r "${apt_dir}"
 # Once ClamAV is installed,
 # - remove the temporary file pointed by APT_FILE_MANIFEST
 # - and set it back to its original value.
-rm "${APT_FILE_MANIFEST}"
-export APT_FILE_MANIFEST="${orig_aptfile}"
+rm "${build_dir}/${APT_FILE_MANIFEST}"
+APT_FILE_MANIFEST="${orig_aptfile}"
+export APT_FILE_MANIFEST
 
 # Build some variables, make sure we have nice default values.
 #
