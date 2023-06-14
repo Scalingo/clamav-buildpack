@@ -21,8 +21,7 @@ buildpack_dir="$( readlink -f "${base_dir}/.." )"
 orig_aptfile="${APT_FILE_MANIFEST:-Aptfile}"
 
 # Set it to a random value for our needs:
-APT_FILE_MANIFEST="$( mktemp clamav_buildpack_XXX )"
-export APT_FILE_MANIFEST
+export APT_FILE_MANIFEST="$( mktemp clamav_buildpack_XXXX )"
 
 cat <<EOF >"${APT_FILE_MANIFEST}"
 clamav
@@ -37,7 +36,7 @@ rm "${apt_dir}"
 APT_BUILDPACK_URL="${APT_BUILDPACK_URL:-https://github.com/Scalingo/apt-buildpack}"
 git clone --depth=1 "${APT_BUILDPACK_URL}" "${apt_dir}"
 
-# Install what's 
+# Install ClamAV packages:
 "${apt_dir}/bin/compile" "${build_dir}" "${cache_dir}" "${env_dir}"
 
 source "${apt_dir}/export"
@@ -47,8 +46,7 @@ rm -r "${apt_dir}"
 # - remove the temporary file pointed by APT_FILE_MANIFEST
 # - and set it back to its original value.
 rm "${APT_FILE_MANIFEST}"
-APT_FILE_MANIFEST="${orig_aptfile}"
-export APT_FILE_MANIFEST
+export APT_FILE_MANIFEST="${orig_aptfile}"
 
 # Build some variables, make sure we have nice default values.
 #
