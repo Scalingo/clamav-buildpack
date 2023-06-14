@@ -8,6 +8,9 @@ This buildpack installs ClamAV into a Scalingo app image.
 multi-buildpack deployment scenario, along with other softwares** such as nginx
 (as front) and clammit (as link between nginx and ClamAV).
 
+> :warning: Please read the instructions provided in the
+[Memory Consumption](#memory-consumption) section of this page.
+
 ## Usage
 
 The following instructions should help you get started:
@@ -61,12 +64,13 @@ The default configuration ensures that:
 definition database into memory. This allows it to be fast.
 
 During a database reload, `clamd`'s default behavior is to temporarily start a
-second scanning engine while scanning continues using the first engine. The old
-engine is removed as soon as all scans using the old engine have completed.
+second scanning engine while scanning continues using the first engine. New
+scans are handled by the second engine, while the first one finishes its tasks.
+The first engine is removed as soon as all its scans have completed.
 
 Consequently, when a database reload occurs, `clamd` uses roughly twice as much
 memory as during nominal operations because 2 databases are loaded at the same
-time. That's why we recommend to use a 2XL container for your application.
+time. That's why **we recommend to use a 2XL container for your application**.
 
 You can however disable this behavior by setting the
 `CLAMD_DISABLE_CONCURRENT_RELOAD` environment variable
