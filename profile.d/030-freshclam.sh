@@ -14,7 +14,7 @@ ensure_freshclam() {
 
     while true
     do
-        sleep 15
+        sleep 15s
         pidof "freshclam" > /dev/null \
             || {
                 echo "Freshclam does not seem to be running. Respawning." >&2
@@ -25,7 +25,7 @@ ensure_freshclam() {
 
 if [ -z "${FRESHCLAM_DISABLE_DAEMON}" ]
 then
-    (
+	(
         # Wait a random amount of time to make sure instances DO NOT start
         # freshclam at the same time.
         # This avoids hammering the database server. It also avoids to be banned.

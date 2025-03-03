@@ -14,6 +14,11 @@ env_dir="${3}"
 base_dir="$( cd -P "$( dirname "$0" )" && pwd )"
 buildpack_dir="$( readlink -f "${base_dir}/.." )"
 
+# FIXME: put that in VERSIONS file:
+# CLAMAV_DEFAULT_VERSION="1.4.2"
+version="${CLAMAV_VERSION:-"1.4.2"}"
+
+url="https://www.clamav.net/downloads/production/clamav-${version}.linux.x86_64.deb"
 
 # We use apt-buildpack to install ClamAV.
 
@@ -21,17 +26,15 @@ buildpack_dir="$( readlink -f "${base_dir}/.." )"
 orig_aptfile="${APT_FILE_MANIFEST:-Aptfile}"
 
 # Set it to a random value for our needs:
-APT_FILE_MANIFEST="$( mktemp clamav_buildpack_XXXX )"
+APT_FILE_MANIFEST="$( mktemp --tmpdir=/tmp clamav_buildpack_XXXX )"
 export APT_FILE_MANIFEST
 
 cat <<EOF >"${build_dir}/${APT_FILE_MANIFEST}"
-clamav
-clamav-daemon
-clamav-freshclam
+${url}
 EOF
 
 # We need a random name to store our apt-buildpack:
-apt_dir="$( mktemp apt_buildpack_XXXX )"
+apt_dir="$( mktemp --tmpdir=/tmp apt_buildpack_XXXX )"
 rm "${apt_dir}"
 
 APT_BUILDPACK_URL="${APT_BUILDPACK_URL:-https://github.com/Scalingo/apt-buildpack}"
@@ -40,8 +43,8 @@ git clone --depth=1 "${APT_BUILDPACK_URL}" "${apt_dir}"
 # Install ClamAV packages:
 "${apt_dir}/bin/compile" "${build_dir}" "${cache_dir}" "${env_dir}"
 
-source "${apt_dir}/export"
-rm -r "${apt_dir}"
+#source "${apt_dir}/export"
+rm -rf "${apt_dir}"
 
 # Once ClamAV is installed,
 # - remove the temporary file pointed by APT_FILE_MANIFEST
@@ -49,6 +52,19 @@ rm -r "${apt_dir}"
 rm "${build_dir}/${APT_FILE_MANIFEST}"
 APT_FILE_MANIFEST="${orig_aptfile}"
 export APT_FILE_MANIFEST
+
+# Copy files to BUILD_DIR:
+for d in "bin" "include" "lib" "sbin"; do
+	mv "${build_dir}/.apt/usr/local/${d}" "${build_dir}/"
+done
+
+rm -rf "${build_dir}/.apt"
+
+PATH="${PATH}:${build_dir}/bin:${build_dir}/sbin"
+export PATH
+
+LD_LIBRARY_PATH="${LD_LIBRARY_PATH}${build_dir}/lib"
+export LD_LIBRARY_PATH
 
 # Build some variables, make sure we have nice default values.
 #
@@ -96,7 +112,6 @@ erb "${buildpack_dir}/config/freshclam.conf.erb" > "${freshclam_config_file}"
 
 # Build clamd configuration file:
 erb "${buildpack_dir}/config/clamd.conf.erb" > "${clamd_config_file}"
-
 
 # Refresh the virus database
 # Put it in cache for future deployments
