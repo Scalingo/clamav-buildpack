@@ -4,7 +4,8 @@
 
 This buildpack installs ClamAV into a Scalingo app image.
 
-> :warning: **This buildpack is not meant to be use as a standalone but rather in a
+> [!IMPORTANT]
+> **This buildpack is not meant to be use as a standalone but rather in a
 multi-buildpack deployment scenario, along with other softwares** such as nginx
 (as front) and clammit (as link between nginx and ClamAV).
 
@@ -51,11 +52,11 @@ configuration, ready to be packaged into a container.
 
 The default configuration ensures that:
 
-- `clamd` will run in background.
-- `clamd` will listen on a local unix socket (`/app/run/clamd.sock`).
-- `freshclam` will run in background, checking for updates 12 times a day,
+- `clamd` runs in background.
+- `clamd` listens on a local unix socket (`/app/run/clamd.sock`).
+- `freshclam` runs in background, checking for updates 12 times a day,
   unless specified otherwise (see [Environment](#environment) below).
-- `freshclam` will use the default `database.clamav.net` mirror, unless
+- `freshclam` uses the default `database.clamav.net` mirror, unless
   specified otherwise (see [Environment](#environment) below).
 
 #### Memory consumption
@@ -108,9 +109,11 @@ When set, this environment variable instructs the image to **NOT** start the
 `freshclam` daemon.\
 Defaults to being unset
 
-:warning: This is a security risk! Running with an outdated virus database is
+> [!WARNING]
+> This is a security risk! Running with an outdated virus database is
 pretty useless. You probably don't want to set this, unless you really know
 what you do.
 
-:point_right: The virus database is downloaded during the build phase, even
+> [!NOTE]
+> The virus database is downloaded during the build phase, even
 when this environment variable is set.
