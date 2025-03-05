@@ -4,7 +4,7 @@ set -e
 
 if [ -n "${BUILDPACK_DEBUG}" ]
 then
-    set -x
+	set -x
 fi
 
 build_dir="${1}"
@@ -117,8 +117,8 @@ erb "${buildpack_dir}/config/clamd.conf.erb" > "${clamd_config_file}"
 # Put it in cache for future deployments
 # The source is specified in the conf file
 freshclam \
-    --config-file="${freshclam_config_file}" \
-    --datadir="${cache_dir}/clamav-data/"
+	--config-file="${freshclam_config_file}" \
+	--datadir="${cache_dir}/clamav-data/"
 
 # Replace the old virus database:
 rm -rf "${clamd_db_dir}"
@@ -128,4 +128,4 @@ cp -rp "${cache_dir}/clamav-data" "${clamd_db_dir}"
 mkdir -p "${build_dir}/.profile.d"
 
 find "${buildpack_dir}/profile.d" -type f -name "*.sh" \
-    -exec cp --target-directory="${build_dir}/.profile.d/" {} +
+	-exec cp --target-directory="${build_dir}/.profile.d/" {} +
