@@ -14,9 +14,9 @@ env_dir="${3}"
 base_dir="$( cd -P "$( dirname "$0" )" && pwd )"
 buildpack_dir="$( readlink -f "${base_dir}/.." )"
 
-# FIXME: put that in VERSIONS file:
-# CLAMAV_DEFAULT_VERSION="1.4.2"
-version="${CLAMAV_VERSION:-"1.4.2"}"
+source "${buildpack_dir}/DEFAULT_VERSIONS"
+
+version="${CLAMAV_VERSION:-"${CLAMAV_DEFAULT_VERSION}"}"
 
 url="https://www.clamav.net/downloads/production/clamav-${version}.linux.x86_64.deb"
 
