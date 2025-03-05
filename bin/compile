@@ -16,9 +16,11 @@ buildpack_dir="$( readlink -f "${base_dir}/.." )"
 
 source "${buildpack_dir}/DEFAULT_VERSIONS"
 
-version="${CLAMAV_VERSION:-"${CLAMAV_DEFAULT_VERSION}"}"
 
+version="${CLAMAV_VERSION:-"${CLAMAV_DEFAULT_VERSION}"}"
 url="https://www.clamav.net/downloads/production/clamav-${version}.linux.x86_64.deb"
+
+cd "${build_dir}"
 
 # We use apt-buildpack to install ClamAV.
 
@@ -26,7 +28,7 @@ url="https://www.clamav.net/downloads/production/clamav-${version}.linux.x86_64.
 orig_aptfile="${APT_FILE_MANIFEST:-Aptfile}"
 
 # Set it to a random value for our needs:
-APT_FILE_MANIFEST="$( mktemp --tmpdir=/tmp clamav_buildpack_XXXX )"
+APT_FILE_MANIFEST="$( mktemp "clamav_buildpack_XXXX" )"
 export APT_FILE_MANIFEST
 
 cat <<EOF >"${build_dir}/${APT_FILE_MANIFEST}"
