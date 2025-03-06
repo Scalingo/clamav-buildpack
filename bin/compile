@@ -24,7 +24,6 @@ url="https://www.clamav.net/downloads/production/${package}"
 
 cache_file="${cache_dir}/clamav-${version}.deb"
 
-
 curl --silent --fail --retry 3 \
 	--location "${url}" \
 	--output "${cache_file}"
@@ -33,20 +32,18 @@ curl --silent --fail --retry 3 \
 extract_dir="$( mktemp --directory --tmpdir="/tmp" "deb_XXXXXX" )"
 dpkg-deb --extract "${cache_file}" "${extract_dir}"
 
-# Copy files to BUILD_DIR:
-
-mkdir --parent "${build_dir}/clamav"
+# Copy files to clamav directory:
+dst_dir="${build_dir}/clamav"
+mkdir --parents "${dst_dir}"
 
 for d in "bin" "include" "lib" "sbin"; do
-	mv "${extract_dir}/usr/local/${d}" "${build_dir}/clamav/"
+	mv "${extract_dir}/usr/local/${d}" "${dst_dir}"
 done
 
-rm -rf "${extract_dir}"
-
-PATH="${PATH}:${build_dir}/clamav/bin:${build_dir}/clamav/sbin"
+PATH="${PATH}:${dst_dir}/bin:${dst_dir}/sbin"
 export PATH
 
-LD_LIBRARY_PATH="${LD_LIBRARY_PATH}${build_dir}/clamav/lib"
+LD_LIBRARY_PATH="${LD_LIBRARY_PATH}${dst_dir}/lib"
 export LD_LIBRARY_PATH
 
 # Build some variables, make sure we have nice default values.
@@ -55,33 +52,29 @@ export LD_LIBRARY_PATH
 # must be prefixed with /app.
 # Also, we use environment vars to pass these variables to the templates.
 #
-# Paths are relative to $HOME, which is '$BUILD_DIR' when in build phase
-# or '/app' when in run phase.
+# For prod (environment var below), we have to replace $build_dir with /app.
 
 # Where freshclam's configuration file is:
-freshclam_config_file="clamav/conf/freshclam.conf"
-export FRESHCLAM_CONFIG_FILE="/app/${freshclam_config_file}"
+freshclam_config_file="${dst_dir}/conf/freshclam.conf"
+export FRESHCLAM_CONFIG_FILE="${freshclam_config_file/${build_dir}/\/app}"
 
-# Where clamd's configuration file is when running:
-clamd_config_file="clamav/conf/clamd.conf"
-export CLAMD_CONFIG_FILE="/app/${clamd_config_file}"
+# Where clamd's configuration file is:
+clamd_config_file="${dst_dir}/conf/clamd.conf"
+export CLAMD_CONFIG_FILE="${clamd_config_file/${build_dir}/\/app}"
 
-# Where clamd's database is when running:
-clamd_db_dir="clamav/data"
-export CLAMD_DATABASE_DIR="/app/${clamd_db_dir}"
+# Where clamd's database is:
+clamd_db_dir="${dst_dir}/data"
+export CLAMD_DATABASE_DIR="${clamd_db_dir/${build_dir}/\/app}"
 
-# Where clamd's local socket is when running:
-clamd_local_socket="clamav/run/clamd.sock"
-export CLAMD_LOCAL_SOCKET="/app/${clamd_local_socket}"
+# Where clamd's local socket is:
+clamd_local_socket="${dst_dir}/run/clamd.sock"
+export CLAMD_LOCAL_SOCKET="${clamd_local_socket/${build_dir}/\/app}"
 
 # Where clamd downloads its update from:
 clamd_database_mirror="${CLAMD_DATABASE_MIRROR:-database.clamav.net}"
 export CLAMD_DATABASE_MIRROR="${clamd_database_mirror}"
 
 
-pushd "${build_dir}" >/dev/null
-
-# We are in $build_dir
 mkdir --parents "$( dirname "${freshclam_config_file}" )"
 mkdir --parents "$( dirname "${clamd_config_file}" )"
 mkdir --parents "$( dirname "${clamd_db_dir}" )"
@@ -101,15 +94,18 @@ erb "${buildpack_dir}/files/clamd.conf.erb" \
 # Put it in cache for future deployments
 # The source is specified in the conf file
 freshclam \
-	--config-file="${build_dir}/${freshclam_config_file}" \
+	--config-file="${freshclam_config_file}" \
 	--datadir="${cache_dir}/clamav-data" 2>/dev/null
 
 # Replace the old virus database:
-rm -rf "${build_dir}/${clamd_db_dir}"
-cp -rp "${cache_dir}/clamav-data" "${build_dir}/${clamd_db_dir}"
+rm -rf "${clamd_db_dir}"
+cp -rp "${cache_dir}/clamav-data" "${clamd_db_dir}"
 
 # Copy profile.d scripts:
 mkdir --parents "${build_dir}/.profile.d"
 
 find "${buildpack_dir}/files/profile.d" -type f -name "*.sh" \
 	-exec cp --target-directory="${build_dir}/.profile.d/" {} +
+
+# Cleanup
+rm -rf "${extract_dir}"
