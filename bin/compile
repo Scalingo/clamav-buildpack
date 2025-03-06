@@ -25,8 +25,6 @@ url="https://www.clamav.net/downloads/production/${package}"
 cache_file="${cache_dir}/clamav-${version}.deb"
 
 
-pushd "${build_dir}" >/dev/null
-
 curl --silent --fail --retry 3 \
 	--location "${url}" \
 	--output "${cache_file}"
@@ -36,16 +34,19 @@ extract_dir="$( mktemp --directory --tmpdir="/tmp" "deb_XXXXXX" )"
 dpkg-deb --extract "${cache_file}" "${extract_dir}"
 
 # Copy files to BUILD_DIR:
+
+mkdir --parent "${build_dir}/clamav"
+
 for d in "bin" "include" "lib" "sbin"; do
-	mv "${extract_dir}/usr/local/${d}" "${build_dir}/"
+	mv "${extract_dir}/usr/local/${d}" "${build_dir}/clamav/"
 done
 
 rm -rf "${extract_dir}"
 
-PATH="${PATH}:${build_dir}/bin:${build_dir}/sbin"
+PATH="${PATH}:${build_dir}/clamav/bin:${build_dir}/clamav/sbin"
 export PATH
 
-LD_LIBRARY_PATH="${LD_LIBRARY_PATH}${build_dir}/lib"
+LD_LIBRARY_PATH="${LD_LIBRARY_PATH}${build_dir}/clamav/lib"
 export LD_LIBRARY_PATH
 
 # Build some variables, make sure we have nice default values.
@@ -58,11 +59,11 @@ export LD_LIBRARY_PATH
 # or '/app' when in run phase.
 
 # Where freshclam's configuration file is:
-freshclam_config_file="clamav/freshclam.conf"
+freshclam_config_file="clamav/conf/freshclam.conf"
 export FRESHCLAM_CONFIG_FILE="/app/${freshclam_config_file}"
 
 # Where clamd's configuration file is when running:
-clamd_config_file="clamav/clamd.conf"
+clamd_config_file="clamav/conf/clamd.conf"
 export CLAMD_CONFIG_FILE="/app/${clamd_config_file}"
 
 # Where clamd's database is when running:
@@ -77,6 +78,8 @@ export CLAMD_LOCAL_SOCKET="/app/${clamd_local_socket}"
 clamd_database_mirror="${CLAMD_DATABASE_MIRROR:-database.clamav.net}"
 export CLAMD_DATABASE_MIRROR="${clamd_database_mirror}"
 
+
+pushd "${build_dir}" >/dev/null
 
 # We are in $build_dir
 mkdir --parents "$( dirname "${freshclam_config_file}" )"

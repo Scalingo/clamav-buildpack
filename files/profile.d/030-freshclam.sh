@@ -4,7 +4,7 @@
 
 start_freshclam() {
     freshclam \
-        --config-file="${HOME}/clamav/freshclam.conf" \
+        --config-file="${HOME}/clamav/conf/freshclam.conf" \
         --daemon \
         --stdout
 }

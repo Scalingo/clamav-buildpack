@@ -3,7 +3,7 @@
 # Starts clamd daemon unless CLAMD_DISABLE_DAEMON is set.
 
 start_clamd() {
-	clamd --config-file="${HOME}/clamav/clamd.conf"
+	clamd --config-file="${HOME}/clamav/conf/clamd.conf"
 }
 
 ensure_clamd() {
