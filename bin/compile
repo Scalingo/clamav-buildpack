@@ -110,10 +110,10 @@ mkdir -p "$( dirname "${sock}" )"
 
 
 # Build freshclam configuration file:
-erb "${buildpack_dir}/config/freshclam.conf.erb" > "${freshclam_config_file}"
+erb "${buildpack_dir}/files/freshclam.conf.erb" > "${freshclam_config_file}"
 
 # Build clamd configuration file:
-erb "${buildpack_dir}/config/clamd.conf.erb" > "${clamd_config_file}"
+erb "${buildpack_dir}/files/clamd.conf.erb" > "${clamd_config_file}"
 
 # Refresh the virus database
 # Put it in cache for future deployments
@@ -129,5 +129,5 @@ cp -rp "${cache_dir}/clamav-data" "${clamd_db_dir}"
 # Copy profile.d scripts:
 mkdir -p "${build_dir}/.profile.d"
 
-find "${buildpack_dir}/profile.d" -type f -name "*.sh" \
+find "${buildpack_dir}/files/profile.d" -type f -name "*.sh" \
 	-exec cp --target-directory="${build_dir}/.profile.d/" {} +
