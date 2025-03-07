@@ -9,8 +9,10 @@ This buildpack installs ClamAV into a Scalingo app image.
 multi-buildpack deployment scenario, along with other softwares** such as nginx
 (as front) and clammit (as link between nginx and ClamAV).
 
-> :warning: Please read the instructions provided in the
-[Memory Consumption](#memory-consumption) section of this page.
+> [!IMPORTANT]
+> Please read the instructions provided in the [Memory Consumption](#memory-consumption)
+  section of this page.
+
 
 ## Usage
 
@@ -26,7 +28,7 @@ https://github.com/Scalingo/clamav-buildpack.git
 
 2. Setup your other buildpacks. Make sure the software(s) interacting with
 ClamAV do it through the local unix socket on which clamd is listening
-(`/app/run/clamd.sock`).
+(`/app/clamav/run/clamd.sock`).
 
 3. Make sure your start the other processes that will communicate with ClamAV.
    You may need a `Procfile` to do this.
@@ -37,10 +39,12 @@ ClamAV do it through the local unix socket on which clamd is listening
 
 During the build phase, this buildpack:
 
-1. Downloads and installs the `clamav`, `clamav-daemon` and `clamav-freshclam`
-   packages.
-2. Creates configuration file for `clamd` in`/app/clamav/clamd.conf`.
-3. Creates configuration file for `freshclam` in `/app/clamav/freshclam.conf`.
+1. Downloads and installs the latest version available of ClamAV (see
+   [`DEFAULT_VERSIONS` file](DEFAULT_VERSIONS)).
+2. Creates configuration file for `clamd` in
+   `/app/clamav/conf/clamd.conf`.
+3. Creates configuration file for `freshclam` in
+   `/app/clamav/conf/freshclam.conf`.
 4. Downloads the latest virus database and stores it in the build cache for
    future use.
 5. Copies the virus database to the build directory.
@@ -53,7 +57,7 @@ configuration, ready to be packaged into a container.
 The default configuration ensures that:
 
 - `clamd` runs in background.
-- `clamd` listens on a local unix socket (`/app/run/clamd.sock`).
+- `clamd` listens on a local unix socket (`/app/clamav/run/clamd.sock`).
 - `freshclam` runs in background, checking for updates 12 times a day,
   unless specified otherwise (see [Environment](#environment) below).
 - `freshclam` uses the default `database.clamav.net` mirror, unless
@@ -83,6 +87,14 @@ database reload.**
 
 The following environment variables are available for you to tweak your
 deployment:
+
+#### `CLAMAV_VERSION`
+
+Version of ClamAV to use.\
+Please see [https://www.clamav.net/downloads](https://www.clamav.net/downloads)
+For a list of available version.\
+We usually advise to use the latest version available.\
+Default is set in [DEFAULT_VERSIONS file](DEFAULT_VERSIONS)
 
 #### `CLAMD_DATABASE_MIRROR`
 
