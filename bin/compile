@@ -4,7 +4,7 @@ set -e
 
 if [ -n "${BUILDPACK_DEBUG}" ]
 then
-    set -x
+	set -x
 fi
 
 build_dir="${1}"
@@ -14,103 +14,98 @@ env_dir="${3}"
 base_dir="$( cd -P "$( dirname "$0" )" && pwd )"
 buildpack_dir="$( readlink -f "${base_dir}/.." )"
 
+source "${buildpack_dir}/DEFAULT_VERSIONS"
 
-# We use apt-buildpack to install ClamAV.
 
-# First put APT_FILE_MANIFEST aside:
-orig_aptfile="${APT_FILE_MANIFEST:-Aptfile}"
+version="${CLAMAV_VERSION:-"${CLAMAV_DEFAULT_VERSION}"}"
 
-# Set it to a random value for our needs:
-APT_FILE_MANIFEST="$( mktemp clamav_buildpack_XXXX )"
-export APT_FILE_MANIFEST
+package="clamav-${version}.linux.x86_64.deb"
+url="https://www.clamav.net/downloads/production/${package}"
 
-cat <<EOF >"${build_dir}/${APT_FILE_MANIFEST}"
-clamav
-clamav-daemon
-clamav-freshclam
-EOF
+cache_file="${cache_dir}/clamav-${version}.deb"
 
-# We need a random name to store our apt-buildpack:
-apt_dir="$( mktemp apt_buildpack_XXXX )"
-rm "${apt_dir}"
+curl --silent --fail --retry 3 \
+	--location "${url}" \
+	--output "${cache_file}"
 
-APT_BUILDPACK_URL="${APT_BUILDPACK_URL:-https://github.com/Scalingo/apt-buildpack}"
-git clone --depth=1 "${APT_BUILDPACK_URL}" "${apt_dir}"
+# Extract deb file:
+extract_dir="$( mktemp --directory --tmpdir="/tmp" "deb_XXXXXX" )"
+dpkg-deb --extract "${cache_file}" "${extract_dir}"
 
-# Install ClamAV packages:
-"${apt_dir}/bin/compile" "${build_dir}" "${cache_dir}" "${env_dir}"
+# Copy files to clamav directory:
+dst_dir="${build_dir}/clamav"
+mkdir --parents "${dst_dir}"
 
-source "${apt_dir}/export"
-rm -r "${apt_dir}"
+for d in "bin" "include" "lib" "sbin"; do
+	mv "${extract_dir}/usr/local/${d}" "${dst_dir}"
+done
 
-# Once ClamAV is installed,
-# - remove the temporary file pointed by APT_FILE_MANIFEST
-# - and set it back to its original value.
-rm "${build_dir}/${APT_FILE_MANIFEST}"
-APT_FILE_MANIFEST="${orig_aptfile}"
-export APT_FILE_MANIFEST
+PATH="${PATH}:${dst_dir}/bin:${dst_dir}/sbin"
+export PATH
+
+LD_LIBRARY_PATH="${LD_LIBRARY_PATH}${dst_dir}/lib"
+export LD_LIBRARY_PATH
 
 # Build some variables, make sure we have nice default values.
 #
-# We also pass variables to the template. For these, the path to the files
-# might change a bit (i.e. $build_dir --> /app).
-# Also, we use environment vars to pass variables to the templates.
+# We also pass variables to the templates. For these, the path to the files
+# must be prefixed with /app.
+# Also, we use environment vars to pass these variables to the templates.
+#
+# For prod (environment var below), we have to replace $build_dir with /app.
 
-# Where freshclam's configuration file is when running:
-prod_freshclam_config_file="/app/clamav/freshclam.conf"
-export FRESHCLAM_CONFIG_FILE="${prod_freshclam_config_file}"
+# Where freshclam's configuration file is:
+freshclam_config_file="${dst_dir}/conf/freshclam.conf"
+export FRESHCLAM_CONFIG_FILE="${freshclam_config_file/${build_dir}/\/app}"
 
-# Where freshclam's configuration file is when building:
-freshclam_config_file="${prod_freshclam_config_file//\/app/${build_dir}}"
+# Where clamd's configuration file is:
+clamd_config_file="${dst_dir}/conf/clamd.conf"
+export CLAMD_CONFIG_FILE="${clamd_config_file/${build_dir}/\/app}"
 
-mkdir -p "$( dirname "${freshclam_config_file}" )"
+# Where clamd's database is:
+clamd_db_dir="${dst_dir}/data"
+export CLAMD_DATABASE_DIR="${clamd_db_dir/${build_dir}/\/app}"
 
+# Where clamd's local socket is:
+clamd_local_socket="${dst_dir}/run/clamd.sock"
+export CLAMD_LOCAL_SOCKET="${clamd_local_socket/${build_dir}/\/app}"
 
-# Where clamd's configuration file is when running:
-prod_clamd_config_file="/app/clamav/clamd.conf"
-export CLAMD_CONFIG_FILE="${prod_clamd_config_file}"
-
-# Where clamd's configuration file is when building:
-clamd_config_file="${prod_clamd_config_file//\/app/${build_dir}}"
-mkdir -p "$( dirname "${clamd_config_file}" )"
-
-
-# Where clamd's database is when running:
-prod_clamd_db_dir="/app/clamav/data"
-export CLAMD_DATABASE_DIR="${prod_clamd_db_dir}"
-
-# Where clamd's database is when building:
-clamd_db_dir="${prod_clamd_db_dir//\/app/${build_dir}}"
+# Where clamd downloads its update from:
+clamd_database_mirror="${CLAMD_DATABASE_MIRROR:-database.clamav.net}"
+export CLAMD_DATABASE_MIRROR="${clamd_database_mirror}"
 
 
-clamd_db_mirror="${CLAMD_DATABASE_MIRROR:-database.clamav.net}"
-export CLAMD_DATABASE_MIRROR="${clamd_db_mirror}"
-
-sock="/app/run/clamd.sock"
-export CLAMD_LOCAL_SOCKET="${sock}"
-mkdir -p "$( dirname "${sock}" )"
+mkdir --parents "$( dirname "${freshclam_config_file}" )"
+mkdir --parents "$( dirname "${clamd_config_file}" )"
+mkdir --parents "$( dirname "${clamd_db_dir}" )"
+mkdir --parents "$( dirname "${clamd_local_socket}" )"
 
 
 # Build freshclam configuration file:
-erb "${buildpack_dir}/config/freshclam.conf.erb" > "${freshclam_config_file}"
+erb "${buildpack_dir}/files/freshclam.conf.erb" \
+	> "${freshclam_config_file}"
 
 # Build clamd configuration file:
-erb "${buildpack_dir}/config/clamd.conf.erb" > "${clamd_config_file}"
+erb "${buildpack_dir}/files/clamd.conf.erb" \
+	> "${clamd_config_file}"
 
 
 # Refresh the virus database
 # Put it in cache for future deployments
 # The source is specified in the conf file
 freshclam \
-    --config-file="${freshclam_config_file}" \
-    --datadir="${cache_dir}/clamav-data/"
+	--config-file="${freshclam_config_file}" \
+	--datadir="${cache_dir}/clamav-data" 2>/dev/null
 
 # Replace the old virus database:
 rm -rf "${clamd_db_dir}"
 cp -rp "${cache_dir}/clamav-data" "${clamd_db_dir}"
 
 # Copy profile.d scripts:
-mkdir -p "${build_dir}/.profile.d"
+mkdir --parents "${build_dir}/.profile.d"
 
-find "${buildpack_dir}/profile.d" -type f -name "*.sh" \
-    -exec cp --target-directory="${build_dir}/.profile.d/" {} +
+find "${buildpack_dir}/files/profile.d" -type f -name "*.sh" \
+	-exec cp --target-directory="${build_dir}/.profile.d/" {} +
+
+# Cleanup
+rm -rf "${extract_dir}"
