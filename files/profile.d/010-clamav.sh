@@ -10,7 +10,8 @@ export LD_LIBRARY_PATH
 CLAMAV_START=1
 
 # Get the process type name we're running in:
-current_process_type="$( echo "${CONTAINER}" | cut -d'-' -f1 )"
+# We must support "one-off" as a valid process type name, hence using rev:
+current_process_type="$( echo "${CONTAINER}" | rev | cut -d'-' -f2- | rev )"
 
 # Create the process_types array from CLAMAV_PROCESS_TYPES:
 IFS=', ' read -r -a process_types <<< "${CLAMAV_PROCESS_TYPES:-"web"}"
