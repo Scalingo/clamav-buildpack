@@ -23,8 +23,9 @@ ensure_freshclam() {
     done &
 }
 
-if [ -z "${FRESHCLAM_DISABLE_DAEMON}" ]
-then
+# Only start freshcalm if the conditions are OK
+# `CLAMAV_START` is computed in 010-clamav.sh
+if [ -z "${FRESHCLAM_DISABLE_DAEMON}" ] && [ "${CLAMAV_START}" -eq 0 ]; then
 	(
         # Wait a random amount of time to make sure instances DO NOT start
         # freshclam at the same time.
