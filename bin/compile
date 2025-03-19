@@ -98,8 +98,8 @@ freshclam \
 	--datadir="${cache_dir}/clamav-data" 2>/dev/null
 
 # Replace the old virus database:
-rm -rf "${clamd_db_dir}"
-cp -rp "${cache_dir}/clamav-data" "${clamd_db_dir}"
+cp --archive --force "${cache_dir}/clamav-data/." "${clamd_db_dir}/"
+rm --recursive --force "${cache_dir}/clamav-data"
 
 # Copy profile.d scripts:
 mkdir --parents "${build_dir}/.profile.d"
