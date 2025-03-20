@@ -33,10 +33,7 @@ ClamAV do it through the local unix socket on which clamd is listening
 3. Make sure your start the other processes that will communicate with ClamAV.
    You may need a `Procfile` to do this.
 
-4. Specify the name of the process type(s) for which you want ClamAV to run
-   using the [`CLAMAV_PROCESS_TYPES` environment variable](#CLAMAV_PROCESS_TYPES).
-
-5. Trigger your deployment.
+4. Trigger your deployment.
 
 ### Deployment workflow
 
@@ -99,14 +96,19 @@ for a list of available version.\
 We usually advise to use the latest version available.\
 Default is set in [DEFAULT_VERSIONS file](DEFAULT_VERSIONS)
 
-#### `CLAMAV_PROCESS_TYPES`
+#### `CLAMAV_DISABLE_PROCESS_TYPES`
 
-A comma separated list of process type names for which ClamAV is started.\
+A comma separated list of process type names for which ClamAV is **not**
+started.\
 Please read [our documentation about the `Procfile`](https://doc.scalingo.com/platform/app/procfile)
 to know more about process types.\
+Use this environment variable to prevent ClamAV from running when not
+necessary. For example, if you don't want ClamAV to run in a `postdeploy`
+container, set `CLAMAV_DISABLE_PROCESS_TYPES` to `postdeploy`.\
 Special process types such as `web`, `tcp`, `postdeploy` and `one-off` are
 valid.\
-Defaults to `web`
+Defaults to being unset, which means ClamAV will be started in all process
+types.
 
 #### `CLAMD_DATABASE_MIRROR`
 
