@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 
-# Starts clamd daemon unless CLAMD_DISABLE_DAEMON is set.
+# Starts clamd daemon only if:
+# - we are running in the appropriate process type,
+# - AND if CLAMD_DISABLE_DAEMON is unset.
 
 start_clamd() {
 	clamd --config-file="${HOME}/clamav/conf/clamd.conf"
@@ -20,7 +22,8 @@ ensure_clamd() {
 	done &
 }
 
-if [ -z "${CLAMD_DISABLE_DAEMON}" ]
-then
+# Only start ClamAV if the conditions are OK
+# `CLAMAV_START` is computed in 010-clamav.sh
+if [ -z "${CLAMD_DISABLE_DAEMON}" ] && [ "${CLAMAV_START}" -eq 0 ]; then
 	ensure_clamd
 fi
