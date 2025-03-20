@@ -33,7 +33,10 @@ ClamAV do it through the local unix socket on which clamd is listening
 3. Make sure your start the other processes that will communicate with ClamAV.
    You may need a `Procfile` to do this.
 
-4. Trigger your deployment.
+4. Specify the name of the process type(s) for which you want ClamAV to run
+   using the [`CLAMAV_PROCESS_TYPES` environment variable](#CLAMAV_PROCESS_TYPES).
+
+5. Trigger your deployment.
 
 ### Deployment workflow
 
@@ -58,10 +61,10 @@ The default configuration ensures that:
 
 - `clamd` runs in background.
 - `clamd` listens on a local unix socket (`/app/clamav/run/clamd.sock`).
-- `freshclam` runs in background, checking for updates 12 times a day,
-  unless specified otherwise (see [Environment](#environment) below).
+- `freshclam` runs in background, checking for updates 12 times a day.
 - `freshclam` uses the default `database.clamav.net` mirror, unless
-  specified otherwise (see [Environment](#environment) below).
+  specified otherwise (see [`CLAMD_DATABASE_MIRROR`](#CLAMD_DATABASE_MIRROR)
+  below).
 
 #### Memory consumption
 
@@ -92,9 +95,18 @@ deployment:
 
 Version of ClamAV to use.\
 Please see [https://www.clamav.net/downloads](https://www.clamav.net/downloads)
-For a list of available version.\
+for a list of available version.\
 We usually advise to use the latest version available.\
 Default is set in [DEFAULT_VERSIONS file](DEFAULT_VERSIONS)
+
+#### `CLAMAV_PROCESS_TYPES`
+
+A comma separated list of process type names for which ClamAV is started.\
+Please read [our documentation about the `Procfile`](https://doc.scalingo.com/platform/app/procfile)
+to know more about process types.\
+Special process types such as `web`, `tcp`, `postdeploy` and `one-off` are
+valid.\
+Defaults to `web`
 
 #### `CLAMD_DATABASE_MIRROR`
 
