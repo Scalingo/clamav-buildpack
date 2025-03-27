@@ -58,10 +58,10 @@ The default configuration ensures that:
 
 - `clamd` runs in background.
 - `clamd` listens on a local unix socket (`/app/clamav/run/clamd.sock`).
-- `freshclam` runs in background, checking for updates 12 times a day,
-  unless specified otherwise (see [Environment](#environment) below).
+- `freshclam` runs in background, checking for updates 12 times a day.
 - `freshclam` uses the default `database.clamav.net` mirror, unless
-  specified otherwise (see [Environment](#environment) below).
+  specified otherwise (see [`CLAMD_DATABASE_MIRROR`](#CLAMD_DATABASE_MIRROR)
+  below).
 
 #### Memory consumption
 
@@ -92,9 +92,26 @@ deployment:
 
 Version of ClamAV to use.\
 Please see [https://www.clamav.net/downloads](https://www.clamav.net/downloads)
-For a list of available version.\
+for a list of available version.\
 We usually advise to use the latest version available.\
 Default is set in [DEFAULT_VERSIONS file](DEFAULT_VERSIONS)
+
+#### `CLAMAV_DISABLE_PROCESS_TYPES`
+
+A comma separated list of process type names for which ClamAV is **not**
+started.\
+Please read [our documentation about the `Procfile`](https://doc.scalingo.com/platform/app/procfile)
+to know more about process types.\
+Use this environment variable to prevent ClamAV from running when not
+necessary. For example, if you don't want ClamAV to run in a `postdeploy`
+container, set `CLAMAV_DISABLE_PROCESS_TYPES` to `postdeploy`.\
+Special process types such as `web`, `tcp`, `postdeploy` and `one-off` are
+valid.\
+Defaults to `postdeploy,one-off`, which means ClamAV won't be started for these
+two process types. \
+To enable ClamAV for these process types, make sure
+`CLAMAV_DISABLE_PROCESS_TYPES` is set, even to an empty value.
+
 
 #### `CLAMD_DATABASE_MIRROR`
 
