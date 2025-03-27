@@ -13,8 +13,10 @@ CLAMAV_START=0
 # We must support "one-off" as a valid process type name, hence using rev:
 current_process_type="$( echo "${CONTAINER}" | rev | cut -d'-' -f2- | rev )"
 
-# Create the disabled array by parsing CLAMAV_DISABLE_PROCESS_TYPES:
-IFS=', ' read -r -a disabled <<< "${CLAMAV_DISABLE_PROCESS_TYPES:-""}"
+# Create the disabled array by parsing CLAMAV_DISABLE_PROCESS_TYPES
+# Defaults to "postdeploy,one-off" when CLAMAV_DISABLE_PROCESS_TYPES is unset.
+IFS=', ' read -r -a disabled \
+	<<< "${CLAMAV_DISABLE_PROCESS_TYPES:-"postdeploy,one-off"}"
 
 # Check if we are in a process type for which we **don't** want to start ClamAV:
 for p in "${disabled[@]}"; do
