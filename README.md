@@ -107,9 +107,10 @@ necessary. For example, if you don't want ClamAV to run in a `postdeploy`
 container, set `CLAMAV_DISABLE_PROCESS_TYPES` to `postdeploy`.\
 Special process types such as `web`, `tcp`, `postdeploy` and `one-off` are
 valid.\
-Defaults `postdeploy,one-off`, which means ClamAV won't be started for these
-two process types. To enable ClamAV for these process types, make sure
-`CLAMAV_DISABLE_PROCESS_TYPES` is set (even to an empty value).
+Defaults to `postdeploy,one-off`, which means ClamAV won't be started for these
+two process types. \
+To enable ClamAV for these process types, make sure
+`CLAMAV_DISABLE_PROCESS_TYPES` is set, even to an empty value.
 
 
 #### `CLAMD_DATABASE_MIRROR`
