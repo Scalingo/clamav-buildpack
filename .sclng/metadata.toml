@@ -1,5 +1,6 @@
 dependencies = []
 description = "ClamAV buildpack"
+flags = ["buildpack"]
 languages = ["shell"]
 owner = "team-infrastructure-services@scalingo.com"
 team = "IST"
