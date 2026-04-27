@@ -1,5 +1,5 @@
 dependencies = []
-description = "ClamAV buildpack"
+description = "ClamAV Buildpack"
 flags = ["buildpack"]
 languages = ["shell"]
 owner = "team-infrastructure-services@scalingo.com"
