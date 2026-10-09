@@ -3,7 +3,7 @@ DatabaseMirror    <%= ENV['CLAMD_DATABASE_MIRROR'] %>
 NotifyClamd       <%= ENV['CLAMD_CONFIG_FILE'] %>
 LogFacility       info
 LogTime           yes
-LogFile           /tmp/freshclam.log
+UpdateLogFile     /tmp/freshclam.log
 LogFileMaxSize    10M
 LogRotate         yes
 Checks            12
