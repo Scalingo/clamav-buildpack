@@ -24,6 +24,13 @@ ensure_clamd() {
 
 # Only start ClamAV if the conditions are OK
 # `CLAMAV_START` is computed in 010-clamav.sh
-if [ -z "${CLAMD_DISABLE_DAEMON}" ] && [ "${CLAMAV_START}" -eq 0 ]; then
+if [[ -z "${CLAMD_DISABLE_DAEMON}" ]] && [[ "${CLAMAV_START}" -eq 0 ]]; then
+
+	# Use tail to send logs to stdout.
+	# clamd rotates the file.
+	logfile="/tmp/clamd.log"
+	touch "${logfile}"
+	tail --lines=0 -F "${logfile}" &
+
 	ensure_clamd
 fi
