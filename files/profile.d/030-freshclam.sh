@@ -26,6 +26,13 @@ ensure_freshclam() {
 # Only start freshcalm if the conditions are OK
 # `CLAMAV_START` is computed in 010-clamav.sh
 if [ -z "${FRESHCLAM_DISABLE_DAEMON}" ] && [ "${CLAMAV_START}" -eq 0 ]; then
+
+	# Use tail to send logs to stdout.
+	# freshclam rotates the file.
+	logfile="/tmp/freshclam.log"
+	touch "${logfile}"
+	tail --lines=0 -F "${logfile}" &
+
 	(
         # Wait a random amount of time to make sure instances DO NOT start
         # freshclam at the same time.

@@ -95,7 +95,7 @@ erb "${buildpack_dir}/files/clamd.conf.erb" \
 # The source is specified in the conf file
 freshclam \
 	--config-file="${freshclam_config_file}" \
-	--datadir="${cache_dir}/clamav-data" 2>/dev/null
+	--datadir="${cache_dir}/clamav-data" # 2>/dev/null
 
 # Replace the old virus database:
 cp --archive --force "${cache_dir}/clamav-data/." "${clamd_db_dir}/"
