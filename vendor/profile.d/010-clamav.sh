@@ -9,9 +9,10 @@ export LD_LIBRARY_PATH
 # Whether we should start ClamAV or not (defaults is yes):
 CLAMAV_START=0
 
-# Get the process type name we're running in:
-# We must support "one-off" as a valid process type name, hence using rev:
-current_process_type="$( echo "${CONTAINER}" | rev | cut -d'-' -f2- | rev )"
+# Get the process type name we're running in
+# Use Bash parameter expansion to remove the last hyphen and everything after
+# it, as we must support "one-off" as a valid process type name.
+current_process_type="${CONTAINER%-*}"
 
 # Create the disabled array by parsing CLAMAV_DISABLE_PROCESS_TYPES
 # Defaults to "postdeploy,one-off" when CLAMAV_DISABLE_PROCESS_TYPES is unset.
