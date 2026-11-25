@@ -38,6 +38,8 @@ clamav::service::start() {
 	trap 'exit 143' TERM
 	trap 'exit 130' INT
 
+	# Ensure logfile exists
+	touch "${logfile}"
 	# Forward logs to stdout
 	tail --lines=0 -F "${logfile}" > /dev/stdout &
 	tail_pid=$!
@@ -100,9 +102,6 @@ if [[ "${CLAMAV_START:-1}" == "0" ]]; then
 				# JIT-build configuration file:
 				erb "${conf}.erb" > "${conf}"
 
-				# Make sure the log file exists:
-				touch "/tmp/clamd.log"
-
 				clamav::service::start \
 					"clamd" \
 					"/tmp/clamd.log" \
@@ -117,9 +116,6 @@ if [[ "${CLAMAV_START:-1}" == "0" ]]; then
 				
 				# JIT-build configuration file:
 				erb "${conf}.erb" > "${conf}"
-
-				# Make sure the log file exists:
-				touch "/tmp/freshclam.log"
 
 				# Wait a random amount of time to make sure instances DO NOT
 				# start freshclam at the same time. This avoids hammering the
