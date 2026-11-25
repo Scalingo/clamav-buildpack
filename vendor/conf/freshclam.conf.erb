@@ -1,0 +1,11 @@
+DatabaseDirectory /app/clamav/data
+DatabaseMirror    <%= ENV.fetch('CLAMAV_DATABASE_MIRROR', 'database.clamav.net') %>
+
+NotifyClamd       /app/clamav/conf/clamav.conf
+
+UpdateLogFile     /tmp/freshclam.log
+LogFileMaxSize    10M
+LogRotate         yes
+LogTime           no
+
+Checks            12
