@@ -100,6 +100,9 @@ if [[ "${CLAMAV_START:-1}" == "0" ]]; then
 				# JIT-build configuration file:
 				erb "${conf}.erb" > "${conf}"
 
+				# Make sure the log file exists:
+				touch "/tmp/clamd.log"
+
 				clamav::service::start \
 					"clamd" \
 					"/tmp/clamd.log" \
@@ -114,6 +117,9 @@ if [[ "${CLAMAV_START:-1}" == "0" ]]; then
 				
 				# JIT-build configuration file:
 				erb "${conf}.erb" > "${conf}"
+
+				# Make sure the log file exists:
+				touch "/tmp/freshclam.log"
 
 				# Wait a random amount of time to make sure instances DO NOT
 				# start freshclam at the same time. This avoids hammering the

@@ -86,14 +86,10 @@ mkdir --parents -- "${clamav_conf_dir}"
 mkdir --parents -- "${clamav_dir}/run"
 
 # -----------------------------------------------------------------------------
-# To keep compat with current version:
-# - copy .profile.d scripts to clamav/bin.
-# - ln -sfn /app/clamav/bin/<script>.sh /app/.profile.d/
-# - how do we disable these links?
 
 cmn::step::start "Installing ClamAV"
 
-if [[ -f "${cache_file}" ]]; then
+if [[ ! -f "${cache_file}" ]]; then
 	# The archive doesn't exist in the cache.
 
 	# Remove any existing .tar.gz file from the cache, as they are probably for
@@ -207,10 +203,13 @@ LD_LIBRARY_PATH="${LD_LIBRARY_PATH:+${LD_LIBRARY_PATH}:}${clamav_dir}/lib"
 export LD_LIBRARY_PATH
 
 stamp_file="${cache_dir:?}/clamav-data/last-freshclam-check"
-stamp_file_too_old="$( find "${stamp_file}" -mmin +360 -print 2> /dev/null )"
 
-if [[ ! -f "${stamp_file}" ]] || [[ -n "${stamp_file_too_old}" ]]; then
+# The following conditional prevents find to make the whole script fail.
+if [[ ! -f "${stamp_file}" ]] \
+	|| [[ -n "$( find "${stamp_file}" -mmin +360 -print 2> /dev/null )" ]]
+then
 	cmn::task::start "Building temporary configuration file for Freshclam"
+	mkdir --parents "${cache_dir:?}/clamav-data"
 	# We need a temporary config file for Freshclam to be able to run hereafter
 	echo "DatabaseMirror ${CLAMAV_DATABASE_MIRROR:-"database.clamav.net"}" \
 		> "${tmp_dir:?}/freshclam.conf"
@@ -221,7 +220,8 @@ if [[ ! -f "${stamp_file}" ]] || [[ -n "${stamp_file_too_old}" ]]; then
 	cmn::task::start "Downloading latest signature database"
 	# Refresh the virus database
 	# The source is specified in the conf file
-	freshclam --foreground --config-file="${tmp_dir:?}/freshclam.conf" \
+	freshclam --foreground --quiet --stdout \
+		--config-file="${tmp_dir:?}/freshclam.conf" \
 		2> /dev/null
 
 	# Create or update $stamp_file modification time:
