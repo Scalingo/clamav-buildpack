@@ -1,5 +1,9 @@
 #!/usr/bin/env bash
 
+if [[ -n "${BUILDPACK_DEBUG}" ]]; then
+	set -o xtrace
+fi
+
 clamav::service::cleanup() {
 #
 # This function is called when `clamav::service::start` is active, which makes
