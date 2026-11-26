@@ -4,6 +4,24 @@ if [[ -n "${BUILDPACK_DEBUG}" ]]; then
 	set -o xtrace
 fi
 
+clamav::services::cleanup() {
+#
+# This function is called from "main", which makes vairables defined in "main"
+# available here.
+# See Bash's dynamic scoping for further details.
+#
+# $service_pids contains the pids of services launched. 
+#
+	local pid
+
+	for pid in "${service_pids[@]}"; do
+		kill "${pid}" 2> /dev/null || true
+	done
+	for pid in "${service_pids[@]}"; do
+		wait "${pid}" 2> /dev/null || true
+	done
+}
+
 clamav::service::cleanup() {
 #
 # This function is called when `clamav::service::start` is active, which makes
@@ -66,7 +84,8 @@ clamav::service::start() {
 		"$@" &
 
 		# Save the PID of the background process
-		# Cleanup uses that PID to send the daemon a termination signal
+		# clamav::service::cleanup uses that PID to send the daemon a
+		# termination signal
 		cmd_pid=$!
 
 		# Pauses the restart loop until the process running in background exits
@@ -92,51 +111,62 @@ clamav::service::start() {
 
 
 # -----------------------------------------------------------------------------
-
-_clamav_service="${1}"
+# main
 
 # Only start if the conditions are OK
 # `CLAMAV_START` is computed in .profile.d/010-clamav.sh
 if [[ "${CLAMAV_START:-1}" == "0" ]]; then
-	case "${_clamav_service}" in
-		clamd)
-			if [[ -z "${CLAMD_DISABLE_DAEMON:-}" ]]; then
-				conf="${HOME}/clamav/conf/clamd.conf"
 
-				# JIT-build configuration file:
-				erb "${conf}.erb" > "${conf}"
+	# Setup traps for subshells we'll start hereafter
+	trap clamav::services::cleanup EXIT
+	trap 'exit 143' TERM
+	trap 'exit 130' INT
 
-				clamav::service::start \
-					"clamd" \
-					"/tmp/clamd.log" \
-					0 \
-					10 \
-					clamd --foreground --config-file="${conf}"
-			fi
-			;;
-		freshclam)
-			if [[ -z "${FRESHCLAM_DISABLE_DAEMON:-}" ]]; then
-				conf="${HOME}/clamav/conf/freshclam.conf"
-				
-				# JIT-build configuration file:
-				erb "${conf}.erb" > "${conf}"
+	service_pids=()
 
-				# Wait a random amount of time to make sure instances DO NOT
-				# start freshclam at the same time. This avoids hammering the
-				# database server, which avoids to be banned.
-				clamav::service::start \
-					"freshclam" \
-					"/tmp/freshclam.log" \
-					"$((RANDOM % 3600 + 1))" \
-					60 \
-					freshclam --daemon --foreground --config-file="${conf}"
-			fi
-			;;
-		*)
-			printf "Unknown service: %s.\n" "${_clamav_service}" >&2
-			printf "Available services are %s or %s.\n" \
-				"clamd" "freshclam" >&2
-			exit 1
-			;;
-	esac
+	# Isolate each service's restart loop and traps in a background
+	# subshell, thanks to the parenthesis + &
+	
+	if [[ -z "${CLAMAV_DISABLE_FRESHCLAM:-}" ]]; then
+		# Start freshclam
+		(
+			conf="${HOME}/clamav/conf/freshclam.conf"
+
+			# JIT-build configuration file:
+			erb "${conf}.erb" > "${conf}"
+
+			# Wait a random amount of time to make sure instances DO NOT start
+			# freshclam at the same time. This avoids hammering the database
+			# server, which avoids to be banned.
+			clamav::service::start "freshclam" \
+				"/tmp/freshclam.log" \
+				"$((RANDOM % 3600 + 1))" \
+				60 \
+				freshclam --daemon --foreground --config-file="${conf}"
+		) &
+
+		# Record pid for cleanup
+		service_pids+=( "$!" )
+	fi
+
+	if [[ -z "${CLAMAV_DISABLE_CLAMD:-}" ]]; then
+		# Start clamd
+		(
+			conf="${HOME}/clamav/conf/clamd.conf"
+
+			# JIT-build configuration file:
+			erb "${conf}.erb" > "${conf}"
+
+			clamav::service::start "clamd" \
+				"/tmp/clamd.log" \
+				0 \
+				10 \
+				clamd --foreground --config-file="${conf}"
+		) &
+
+		# Record pid for cleanup
+		service_pids+=( "$!" )
+	fi
+
+	wait "${service_pids[@]}"
 fi
