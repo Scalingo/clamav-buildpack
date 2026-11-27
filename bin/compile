@@ -176,12 +176,9 @@ do
 done
 cmn::task::finish
 
-cmn::task::start "Copying startup scripts"
-for _script in \
-	"${buildpack_dir:?}/vendor/start.sh"
-do
-	cp -- "${_script}" "${clamav_dir}/bin/" 2> /dev/null
-done
+cmn::task::start "Copying startup script"
+_script="${buildpack_dir:?}/vendor/start.sh"
+cp -- "${_script}" "${clamav_dir}/bin/" 2> /dev/null
 cmn::task::finish
 
 # -----------------------------------------------------------------------------

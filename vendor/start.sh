@@ -33,24 +33,17 @@ clamav::service::cleanup() {
 		kill "${cmd_pid}" 2> /dev/null || true
 		wait "${cmd_pid}" 2> /dev/null || true
 	fi
-
-	if [[ -n "${tail_pid:-}" ]]; then
-		kill "${tail_pid}" 2> /dev/null || true
-		wait "${tail_pid}" 2> /dev/null || true
-	fi
 }
 
 clamav::service::start() {
 	local name="${1}"
-	local logfile="${2}"
-	local start_delay="${3}"
-	local restart_delay="${4}"
+	local start_delay="${2}"
+	local restart_delay="${3}"
 
-	# We've consumed $name, $logfile, $start_delay, and $restart_delay
+	# We've consumed $name, $start_delay, and $restart_delay
 	# The rest of the arguments are used as command ($@ later)
-	shift 4
+	shift 3
 
-	local tail_pid=""
 	local cmd_pid=""
 	local started_at
 	local status
@@ -59,12 +52,6 @@ clamav::service::start() {
 	trap clamav::service::cleanup EXIT
 	trap 'exit 143' TERM
 	trap 'exit 130' INT
-
-	# Ensure logfile exists
-	touch "${logfile}"
-	# Forward logs to stdout
-	tail --lines=0 -F "${logfile}" > /dev/stdout &
-	tail_pid=$!
 
 	# Wait before starting the process
 	# The particular syntax ensures sleep is interruptible
@@ -139,7 +126,6 @@ if [[ "${CLAMAV_START:-1}" == "0" ]]; then
 			# freshclam at the same time. This avoids hammering the database
 			# server, which avoids to be banned.
 			clamav::service::start "freshclam" \
-				"/tmp/freshclam.log" \
 				"$((RANDOM % 3600 + 1))" \
 				60 \
 				freshclam --daemon --foreground --config-file="${conf}"
@@ -158,7 +144,6 @@ if [[ "${CLAMAV_START:-1}" == "0" ]]; then
 			erb "${conf}.erb" > "${conf}"
 
 			clamav::service::start "clamd" \
-				"/tmp/clamd.log" \
 				0 \
 				10 \
 				clamd --foreground --config-file="${conf}"
