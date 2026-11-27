@@ -69,7 +69,7 @@ case "${STACK}" in
 		dependencies+=( "cargo-1.97" )
 		;;
 	*)
-		exit 2
+		exit 10
 		;;
 esac
 
@@ -144,6 +144,10 @@ popd > /dev/null || exit 4
 # -----------------------------------------------------------------------------
 
 cmn::step::start "Packaging"
+
+cmn::task::start "Removing configuration samples"
+rm --force "${prefix}"/conf/*.conf.sample
+cmn::task::finish
 
 cmn::task::start "Creating archive"
 tar --create --gzip \
