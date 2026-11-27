@@ -1,3 +1,3 @@
 Version	URL	Checksum	Default?
-1.5.5	https://clamav-buildpack.s3.eu-central-1.amazonaws.com/scalingo-22/clamav-1.5.5.tar.gz	sha256:05162d83972c1fab774021b7483a67c0c4804a4cb059457beeb8ec65b659a8c8	
-1.4.7	https://clamav-buildpack.s3.eu-central-1.amazonaws.com/scalingo-22/clamav-1.4.7.tar.gz	sha256:6c0932f381b7cc24ade288358918ec9723ff8acdcea61e992f8219da2d6b4d7d	default
+1.5.5	https://clamav-buildpack.s3.eu-central-1.amazonaws.com/scalingo-22/clamav-1.5.5.tar.gz	sha256:5ee031aea59932e05d201ff70502491304b3534df84f8a0946e69a7d5f034841	
+1.4.7	https://clamav-buildpack.s3.eu-central-1.amazonaws.com/scalingo-22/clamav-1.4.7.tar.gz	sha256:cb3fd16ff0ed2e7353e1918f00c015332f943c306f41fddb91064b0c0ca71340	default
