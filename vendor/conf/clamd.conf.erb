@@ -1,0 +1,18 @@
+Foreground                yes
+
+DatabaseDirectory         /app/clamav/data
+ConcurrentDatabaseReload  <%= ENV['CLAMAV_DISABLE_CONCURRENT_RELOAD'] == 'yes' ? 'no' : 'yes' %>
+
+LogVerbose                yes
+LogTime                   no
+Debug                     no
+
+<% if !ENV['CLAMAV_TCP_ADDR'].to_s.empty? || !ENV['CLAMAV_TCP_PORT'].to_s.empty? %>
+TCPAddr                   <%= ENV.fetch('CLAMAV_TCP_ADDR', '127.0.0.1') %>
+TCPSocket                 <%= ENV.fetch('CLAMAV_TCP_PORT', 3310) %>
+<% end %>
+
+<% if !ENV['CLAMAV_LOCAL_SOCKET'].to_s.empty? || (ENV['CLAMAV_TCP_ADDR'].to_s.empty? && ENV['CLAMAV_TCP_PORT'].to_s.empty?) %>
+LocalSocket               /app/clamav/run/clamd.socket
+FixStaleSocket            yes
+<% end %>

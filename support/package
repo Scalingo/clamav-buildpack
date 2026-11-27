@@ -1,0 +1,199 @@
+#!/usr/bin/env bash
+# usage: /buildpack/support/package <clamav_version>
+#
+# $1: Version of ClamAV to package.
+#
+# Example:
+# /buildpack/support/package 1.5.6
+#
+
+# shellcheck source=vendor/cmnlib.sh
+cmnlib="$( readlink -f "$( dirname "${0}" )/../vendor/cmnlib.sh" )"
+source "${cmnlib}"
+
+# Create required dirs:
+mkdir --parents /tmp/cache /tmp/env
+
+cmn::main::start "${0}" "/app" "/tmp/cache" "/tmp/env"
+
+# -----------------------------------------------------------------------------
+
+version="${1:?"Please pass the version number to package."}"
+
+archive="clamav-${version}.tar.gz"
+archive_url="https://www.clamav.net/downloads/production/${archive}"
+
+cache_file="${cache_dir:?}/${archive}"
+
+build_archive="${build_dir:?}/${archive}"
+build_log="${tmp_dir:?}/build.log"
+
+inventory="${buildpack_dir:?}/INVENTORY-${STACK:?}.tsv"
+
+s3_bucket="clamav-buildpack"
+inventory_url="https://${s3_bucket}.s3.eu-central-1.amazonaws.com/${STACK:?}/${archive}"
+
+# -----------------------------------------------------------------------------
+
+cmn::step::start "Downloading ClamAV ${version}"
+
+cmn::task::start "Downloading ClamAV archive"
+cmn::file::download "${archive_url}" "${cache_dir:?}/${archive}"
+cmn::task::finish
+
+cmn::task::start "Extracting"
+tar --extract --gzip \
+	--file "${cache_file}" \
+	--directory="${tmp_dir:?}" \
+	--strip-components=1
+cmn::task::finish
+
+# -----------------------------------------------------------------------------
+
+cmn::step::start "Installing dependencies"
+dependencies=(
+	"cmake"
+	"bindgen"
+	"libc++-dev"
+	"libjson-c-dev"
+)
+
+case "${STACK}" in
+	scalingo-22)
+		dependencies+=( "cargo-1.91" )
+		;;
+	scalingo-24)
+		dependencies+=( "cargo-1.97" )
+		;;
+	scalingo-26)
+		dependencies+=( "cargo-1.97" )
+		;;
+	*)
+		exit 10
+		;;
+esac
+
+# Install dependencies:
+export DEBIAN_FRONTEND="noninteractive"
+apt install --yes --quiet=4 -- "${dependencies[@]}"
+ln --symbolic -- \
+	"$( printf '%s\n' /usr/lib/rust-*/ | sort --version-sort | tail --lines 1 )" \
+	"/usr/lib/rust"
+PATH="${PATH:+${PATH}:}/usr/lib/rust/bin"
+export PATH
+cmn::task::finish
+
+# -----------------------------------------------------------------------------
+
+cmn::step::start "Compiling"
+
+build_log="${tmp_dir:?}/build.log"
+prefix="/app/clamav"
+pushd "${tmp_dir:?}" >/dev/null
+
+cmn::task::start "Compiling (1/3)"
+if ! cmake -S . -B build \
+	-DCMAKE_BUILD_TYPE=Release \
+	-DCMAKE_INSTALL_PREFIX="${prefix}" \
+	-DCMAKE_INSTALL_BINDIR=bin \
+	-DCMAKE_INSTALL_SBINDIR=sbin \
+	-DCMAKE_INSTALL_LIBDIR=lib \
+	-DCMAKE_INSTALL_INCLUDEDIR=include \
+	-DCMAKE_INSTALL_RPATH="${prefix}/lib" \
+	-DAPP_CONFIG_DIRECTORY="${prefix}/conf" \
+	-DDATABASE_DIRECTORY="${prefix}/data" \
+	-DCVD_CERTS_DIRECTORY="${prefix}/certs" \
+	-DCLAMAV_USER=appsdeck \
+	-DCLAMAV_GROUP=appsdeck \
+	-DENABLE_APP=ON \
+	-DENABLE_LIBCLAMAV_ONLY=OFF \
+	-DENABLE_MILTER=OFF \
+	-DENABLE_CLAMONACC=OFF \
+	-DENABLE_SYSTEMD=OFF \
+	-DENABLE_TESTS=OFF \
+	-DENABLE_MAN_PAGES=OFF \
+	-DENABLE_DOXYGEN=OFF \
+	-DENABLE_JSON_SHARED=OFF \
+	> "${build_log}" \
+	2>&1
+then
+	cmn::task::fail
+	cmn::output::err < "${build_log}"
+	cmn::main::fail 1 "Aborting."
+fi
+cmn::task::finish
+
+cmn::task::start "Compiling (2/3)"
+if ! cmake --build build --parallel 8 >> "${build_log}" 2>&1; then
+	cmn::task::fail
+	cmn::output::err < "${build_log}"
+	cmn::main::fail 2 "Aborting."
+fi
+cmn::task::finish
+
+cmn::task::start "Compiling (3/3)"
+if ! cmake --install build >> "${build_log}" 2>&1; then
+	cmn::task::fail
+	cmn::output::err < "${build_log}"
+	cmn::main::fail 3 "Aborting."
+fi
+cmn::task::finish
+
+popd > /dev/null || exit 4
+
+# -----------------------------------------------------------------------------
+
+cmn::step::start "Packaging"
+
+cmn::task::start "Removing configuration samples"
+rm --force "${prefix}"/conf/*.conf.sample
+cmn::task::finish
+
+cmn::task::start "Creating archive"
+tar --create --gzip \
+	--file="${build_archive}" -- \
+	"clamav"
+cmn::task::finish
+
+cmn::task::start "Uploading archive to ObjectStorage"
+cmn::s3::upload \
+	"${build_archive}" \
+	"${s3_bucket}" \
+	"${STACK:?}/${archive}"
+cmn::task::finish
+
+# -----------------------------------------------------------------------------
+
+cmn::step::start "Updating inventory"
+
+cmn::task::start "Computing checksum"
+checksum_output="$( shasum --algorithm 256 < "${build_archive}" )"
+# Use Bash expansion to remove everything after the first space,
+# so we keep the checksum only:
+checksum="${checksum_output%% *}"
+cmn::task::finish
+
+cmn::task::start "Updating inventory file"
+new_inventory="$( mktemp )"
+row="%s\t%s\t%s\t%s\n"
+
+# Print inventory file header:
+printf -- "${row}" "Version" "URL" "Checksum" "Default?" \
+	> "${new_inventory}"
+
+# Print new inventory row:
+printf -- "${row}" "${version}" "${inventory_url}" "sha256:${checksum}" '' \
+	>> "${new_inventory}"
+
+# Put existing inventory back in place:
+tail --lines +2 -- "${inventory}" >> "${new_inventory}"
+
+# Keep permissions:
+chown --reference="${inventory}" -- "${new_inventory}"
+chmod --reference="${inventory}" -- "${new_inventory}"
+mv -- "${new_inventory}" "${inventory}"
+cmn::task::finish
+
+# -----------------------------------------------------------------------------
+
+cmn::main::finish

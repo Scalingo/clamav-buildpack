@@ -1,110 +1,240 @@
 #!/usr/bin/env bash
+# usage: bin/compile <build_dir> <cache_dir> <env_dir>
 
-set -e
 
-if [ -n "${BUILDPACK_DEBUG}" ]
-then
-	set -x
+cmnlib="$( readlink -f "$( dirname "${0}" )/../vendor/cmnlib.sh" )"
+# shellcheck source=vendor/cmnlib.sh
+source "${cmnlib}"
+
+cmn::main::start "${0}" "${1}" "${2}" "${3}"
+
+# -----------------------------------------------------------------------------
+
+# Inventory file:
+inventory="${buildpack_dir:?}/INVENTORY-${STACK:?}.tsv"
+
+# This statement won't fail even if cmn::inventory::get_default were to fail.
+version="${CLAMAV_VERSION:-$( cmn::inventory::get_default "${inventory}" )}"
+
+if [[ -z "${version}" ]]; then
+	cmn::main::fail 1 <<- EOM
+		Unable to determine which version of ClamAV to deploy.
+		It seems like there is no default version in the inventory file either,
+		which isn't OK.
+
+		Please:
+		1. Set CLAMAV_VERSION environment variable to the desired value, and
+		   try to redeploy. It should pass.
+		2. Either reach out to our Support Team to let them know about this
+		   situation, or file an issue in the buildpack repository:
+		   https://github.com/Scalingo/clamav-buildpack/issues
+		Thanks <3
+
+		Aborting for now.
+	EOM
 fi
 
-build_dir="${1}"
-cache_dir="${2}"
-env_dir="${3}"
+if ! archive_url="$( cmn::inventory::get_url "${inventory}" "${version}" )"
+then
+	cmn::main::fail 1 <<- EOM
+		Unable to retrieve download URL for version ${version}".
+		It seems like there's an issue with the buildpack inventory file.
 
-base_dir="$( cd -P "$( dirname "$0" )" && pwd )"
-buildpack_dir="$( readlink -f "${base_dir}/.." )"
+		Please either reach out to our Support Team to let them know about this
+		situation, or file an issue in the buildpack repository:
+		https://github.com/Scalingo/clamav-buildpack/issues
+		Thanks <3
 
-source "${buildpack_dir}/DEFAULT_VERSIONS"
+		Aborting for now.
+	EOM
+fi
 
 
-version="${CLAMAV_VERSION:-"${CLAMAV_DEFAULT_VERSION}"}"
+if ! archive_checksum="$( cmn::inventory::get_checksum "${inventory}" "${version}" )"
+then
+	cmn::main::fail 1 <<- EOM
+		Unable to retrieve checksum for version ${version}".
+		It seems like there's an issue with the buildpack inventory file.
 
-package="clamav-${version}.linux.x86_64.deb"
-url="https://www.clamav.net/downloads/production/${package}"
+		Please either reach out to our Support Team to let them know about this
+		situation, or file an issue in the buildpack repository:
+		https://github.com/Scalingo/clamav-buildpack/issues
+		Thanks <3
 
-cache_file="${cache_dir}/clamav-${version}.deb"
+		Aborting for now.
+	EOM
+fi
 
-curl --silent --fail --retry 3 \
-	--location "${url}" \
-	--output "${cache_file}"
+cache_file="${cache_dir:?}/clamav-${version}.tar.gz"
+clamav_dir="${build_dir:?}/clamav"
 
-# Extract deb file:
-extract_dir="$( mktemp --directory --tmpdir="/tmp" "deb_XXXXXX" )"
-dpkg-deb --extract "${cache_file}" "${extract_dir}"
-
-# Copy files to clamav directory:
-dst_dir="${build_dir}/clamav"
-mkdir --parents "${dst_dir}"
-
-for d in "bin" "include" "lib" "sbin"; do
-	mv "${extract_dir}/usr/local/${d}" "${dst_dir}"
-done
-
-PATH="${PATH}:${dst_dir}/bin:${dst_dir}/sbin"
-export PATH
-
-LD_LIBRARY_PATH="${LD_LIBRARY_PATH}${dst_dir}/lib"
-export LD_LIBRARY_PATH
-
-# Build some variables, make sure we have nice default values.
-#
-# We also pass variables to the templates. For these, the path to the files
-# must be prefixed with /app.
-# Also, we use environment vars to pass these variables to the templates.
-#
-# For prod (environment var below), we have to replace $build_dir with /app.
-
-# Where freshclam's configuration file is:
-freshclam_config_file="${dst_dir}/conf/freshclam.conf"
-export FRESHCLAM_CONFIG_FILE="${freshclam_config_file/${build_dir}/\/app}"
-
-# Where clamd's configuration file is:
-clamd_config_file="${dst_dir}/conf/clamd.conf"
-export CLAMD_CONFIG_FILE="${clamd_config_file/${build_dir}/\/app}"
+# Where ClamAV configuration files are:
+clamav_conf_dir="${clamav_dir}/conf"
 
 # Where clamd's database is:
-clamd_db_dir="${dst_dir}/data"
-export CLAMD_DATABASE_DIR="${clamd_db_dir/${build_dir}/\/app}"
+clamav_db_dir="${clamav_dir}/data"
 
-# Where clamd's local socket is:
-clamd_local_socket="${dst_dir}/run/clamd.sock"
-export CLAMD_LOCAL_SOCKET="${clamd_local_socket/${build_dir}/\/app}"
+cmn::output::info "Deploying ClamAV ${version}"
 
-# Where clamd downloads its update from:
-clamd_database_mirror="${CLAMD_DATABASE_MIRROR:-database.clamav.net}"
-export CLAMD_DATABASE_MIRROR="${clamd_database_mirror}"
+# -----------------------------------------------------------------------------
 
+cmn::step::start "Installing prerequisites"
 
-mkdir --parents "$( dirname "${freshclam_config_file}" )"
-mkdir --parents "$( dirname "${clamd_config_file}" )"
-mkdir --parents "$( dirname "${clamd_db_dir}" )"
-mkdir --parents "$( dirname "${clamd_local_socket}" )"
+mkdir --parents -- "${build_dir:?}/.profile.d"
+mkdir --parents -- "${clamav_db_dir}"
+mkdir --parents -- "${clamav_conf_dir}"
+mkdir --parents -- "${clamav_dir}/run"
 
+# -----------------------------------------------------------------------------
 
-# Build freshclam configuration file:
-erb "${buildpack_dir}/files/freshclam.conf.erb" \
-	> "${freshclam_config_file}"
+cmn::step::start "Installing ClamAV"
 
-# Build clamd configuration file:
-erb "${buildpack_dir}/files/clamd.conf.erb" \
-	> "${clamd_config_file}"
+if [[ ! -f "${cache_file}" ]]; then
+	# The archive doesn't exist in the cache.
 
+	# Remove any existing .tar.gz file from the cache, as they are probably for
+	# another version:
+	cmn::task::start "Cleaning cache"
+	rm --recursive --force -- "${cache_dir:?}"/clamav*.tar.gz
+	cmn::task::finish
 
-# Refresh the virus database
-# Put it in cache for future deployments
-# The source is specified in the conf file
-freshclam \
-	--config-file="${freshclam_config_file}" \
-	--datadir="${cache_dir}/clamav-data" # 2>/dev/null
+	# Download appropriate version:
+	cmn::task::start "Downloading archive"
+	if ! cmn::file::download "${archive_url}" "${cache_file}"; then
+		cmn::main::fail 2 <<- EOM
+			Unable to download ClamAV archive.
+			Aborting.
+		EOM
+	fi
+	cmn::task::finish
+else
+	# The archive is cached.
+	cmn::output::info "Found matching file in cache."
+fi
 
-# Replace the old virus database:
-cp --archive --force "${cache_dir}/clamav-data/." "${clamd_db_dir}/"
+# From this point, we have an archive in cache.
 
-# Copy profile.d scripts:
-mkdir --parents "${build_dir}/.profile.d"
+# We always check the archive validity to prevent cache corruption and other
+# issues
+cmn::task::start "Checking archive validity"
+if ! cmn::file::validate_checksum "${cache_file}" "${archive_checksum}"; then
+	# File in cache doesn't seem valid,
+	# remove it so a future run can be successful
+	rm --force -- "${cache_file}"
 
-find "${buildpack_dir}/files/profile.d" -type f -name "*.sh" \
-	-exec cp --target-directory="${build_dir}/.profile.d/" {} +
+	cmn::main::fail 2 <<- EOM
+		The checksum for the archive file in the cache doesn't match what's
+		expected.
 
-# Cleanup
-rm -rf "${extract_dir}"
+		Here are the most common causes:
+
+		- A networking issue occured, causing the downloaded file to be
+		  incomplete or corrupt. Triggering a new deployment should force the
+		  platform to download the archive again, and the deployment should
+		  pass.
+
+		- Upstream replaced the archive and its checksum, resulting in the same
+		  version number having a different checksum. This could mean a
+		  malicious threat tampered the source archive and its checksum.
+		  Please check upstream for a potential explanation and make sure it's
+		  still trustable.
+
+		In all cases, the cached archive has been removed to force a new
+		download during the next deployment attempt.
+
+		Aborting.
+	EOM
+fi
+cmn::task::finish
+
+# From this point we have a valid file in cache.
+#
+cmn::task::start "Extracting"
+mkdir --parents -- "${clamav_dir}"
+tar --extract --file="${cache_file}" --directory="${clamav_dir}" \
+	--strip-components=1
+cmn::task::finish
+
+# -----------------------------------------------------------------------------
+
+cmn::step::start "Setting up"
+
+cmn::task::start "Copying configuration templates"
+for _conf in \
+	"${buildpack_dir:?}/vendor/conf/clamd.conf.erb" \
+	"${buildpack_dir:?}/vendor/conf/freshclam.conf.erb"
+do
+	cp -- "${_conf}" "${clamav_conf_dir}/" 2> /dev/null
+done
+cmn::task::finish
+
+cmn::task::start "Copying profile.d script"
+for _script in \
+	"${buildpack_dir:?}/vendor/profile.d/010-clamav.sh"
+do
+	cp -- "${_script}" "${build_dir:?}/.profile.d/" 2> /dev/null
+done
+cmn::task::finish
+
+cmn::task::start "Copying startup script"
+_script="${buildpack_dir:?}/vendor/start.sh"
+cp -- "${_script}" "${clamav_dir}/bin/" 2> /dev/null
+cmn::task::finish
+
+# -----------------------------------------------------------------------------
+
+cmn::step::start "Initializing signature database"
+#
+# We use a timestamp file to determine if we should run freshclam or not
+# during BUILD. This avoids hammering ClamAV's servers.
+# If the timestamp file doesn't exist, or if it's older than 6 hours, we
+# run freshclam.
+# Else, we consider the cache as being recent enough, and we won't run
+# freshclam during BUILD.
+#
+
+PATH="${PATH:+${PATH}:}${clamav_dir}/bin:${clamav_dir}/sbin"
+export PATH
+
+LD_LIBRARY_PATH="${LD_LIBRARY_PATH:+${LD_LIBRARY_PATH}:}${clamav_dir}/lib"
+export LD_LIBRARY_PATH
+
+stamp_file="${cache_dir:?}/clamav-data/last-freshclam-check"
+
+# The following conditional prevents find to make the whole script fail.
+if [[ ! -f "${stamp_file}" ]] \
+	|| [[ -n "$( find "${stamp_file}" -mmin +360 -print 2> /dev/null )" ]]
+then
+	cmn::task::start "Building temporary configuration file for Freshclam"
+	mkdir --parents "${cache_dir:?}/clamav-data"
+	# We need a temporary config file for Freshclam to be able to run hereafter
+	echo "DatabaseMirror ${CLAMAV_DATABASE_MIRROR:-"database.clamav.net"}" \
+		> "${tmp_dir:?}/freshclam.conf"
+	echo "DatabaseDirectory ${cache_dir:?}/clamav-data" \
+		>> "${tmp_dir:?}/freshclam.conf"
+	cmn::task::finish
+
+	cmn::task::start "Downloading latest signature database"
+	# Refresh the virus database
+	# The source is specified in the conf file
+	freshclam --foreground --quiet --stdout \
+		--config-file="${tmp_dir:?}/freshclam.conf" \
+		2> /dev/null
+
+	# Create or update $stamp_file modification time:
+	touch "${stamp_file}"
+	cmn::task::finish
+else
+	cmn::output::info <<- EOM
+		Signature database in cache is recent enough (less than 6 hours old).
+		Going on with it.
+	EOM
+fi
+
+# Put the virus database in place:
+cp --archive --force -- "${cache_dir:?}/clamav-data/." "${clamav_db_dir}/"
+cmn::task::finish
+
+# -----------------------------------------------------------------------------
+
+cmn::main::finish

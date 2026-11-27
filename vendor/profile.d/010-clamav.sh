@@ -1,17 +1,17 @@
 #!/usr/bin/env bash
 
-PATH="${PATH}:${HOME}/clamav/bin:${HOME}/clamav/sbin"
+PATH="${PATH:+${PATH}:}${HOME}/clamav/bin:${HOME}/clamav/sbin"
 export PATH
 
-LD_LIBRARY_PATH="${LD_LIBRARY_PATH}:${HOME}/clamav/lib"
+LD_LIBRARY_PATH="${LD_LIBRARY_PATH:+${LD_LIBRARY_PATH}:}:${HOME}/clamav/lib"
 export LD_LIBRARY_PATH
 
 # Whether we should start ClamAV or not (defaults is yes):
 CLAMAV_START=0
 
-# Get the process type name we're running in.
-# The Bash expansion allows us to remove the shortest suffix matching -*,
-# effectively removing the last hyphen and everything after it.
+# Get the process type name we're running in
+# Use Bash parameter expansion to remove the last hyphen and everything after
+# it, as we must support "one-off" as a valid process type name.
 current_process_type="${CONTAINER%-*}"
 
 # Create the disabled array by parsing CLAMAV_DISABLE_PROCESS_TYPES

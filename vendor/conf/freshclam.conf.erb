@@ -1,0 +1,8 @@
+DatabaseDirectory /app/clamav/data
+DatabaseMirror    <%= ENV.fetch('CLAMAV_DATABASE_MIRROR', 'database.clamav.net') %>
+
+NotifyClamd       /app/clamav/conf/clamav.conf
+
+LogTime           no
+
+Checks            12
